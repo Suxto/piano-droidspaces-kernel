@@ -109,7 +109,7 @@ if [ ! -x "${DTC_DIR}/fdtoverlaymerge" ]; then
     git -C "${DTC_DIR}" fetch -q --depth 1 "${DTC_REPO}" "${DTC_REV}"
     git -C "${DTC_DIR}" checkout -q FETCH_HEAD
     # dtc reads OUT_DIR itself, so keep ours out of its environment.
-    env -u OUT_DIR make -C "${DTC_DIR}" -j"$(nproc)" NO_PYTHON=1 NO_YAML=1 dtc fdtget fdtoverlay fdtoverlaymerge >/dev/null
+    env -u OUT_DIR make -C "${DTC_DIR}" -j"$(nproc)" NO_PYTHON=1 NO_YAML=1 dtc fdtget fdtput fdtoverlay fdtoverlaymerge >/dev/null
 fi
 export PATH="${DTC_DIR}:${PATH}"
 # The locally built dtc tools link against libfdt in their build directory.
