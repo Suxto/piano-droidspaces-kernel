@@ -4,12 +4,15 @@ set -euo pipefail
 KERNEL_URL="${KERNEL_URL:-https://github.com/xiaomi-pad-8-pro-development/android_kernel_xiaomi_piano.git}"
 KERNEL_BRANCH="${KERNEL_BRANCH:-seventeen}"
 KERNEL_COMMIT="${KERNEL_COMMIT:-}"
+MIZU_URL="${MIZU_URL:-https://github.com/helloxujia/mizusu.git}"
+MIZU_TAG="${MIZU_TAG:-v4.1.3}"
 CLANG_URL="${CLANG_URL:-https://github.com/ag-sdc-ci/prebuilts_host_clang-r510928.git}"
 CLANG_BRANCH="${CLANG_BRANCH:-universal}"
 DTC_URL="${DTC_URL:-https://github.com/CodeLinaro-mirror/la_kernel_platform_external_dtc.git}"
 
 ROOT_DIR="${ROOT_DIR:-${PWD}/.build}"
 KERNEL_DIR="${KERNEL_DIR:-${ROOT_DIR}/android_kernel_xiaomi_piano}"
+MIZU_DIR="${MIZU_DIR:-${ROOT_DIR}/mizusu}"
 CLANG_ROOT="${CLANG_ROOT:-${ROOT_DIR}/clang-r510928}"
 LLVM_DIR="${LLVM_DIR:-${CLANG_ROOT}/bin}"
 ROM_DIR="${ROM_DIR:-${ROOT_DIR}/rom}"
@@ -29,27 +32,34 @@ df -h
 
 if [ ! -d "${KERNEL_DIR}/.git" ]; then
     git clone --depth=1 --branch "${KERNEL_BRANCH}" \
-        --recurse-submodules --shallow-submodules \
+        --no-recurse-submodules \
         "${KERNEL_URL}" "${KERNEL_DIR}"
 fi
-
-git -C "${KERNEL_DIR}" submodule update --init --recursive --depth 1
 
 if [ -n "${KERNEL_COMMIT}" ]; then
     git -C "${KERNEL_DIR}" fetch --depth=1 origin "${KERNEL_COMMIT}"
     git -C "${KERNEL_DIR}" checkout --detach FETCH_HEAD
-    git -C "${KERNEL_DIR}" submodule update --init --recursive --depth 1
+fi
+
+if [ ! -d "${MIZU_DIR}/.git" ]; then
+    git clone --depth=1 --branch "${MIZU_TAG}" "${MIZU_URL}" "${MIZU_DIR}"
 fi
 
 if [ ! -d "${CLANG_ROOT}/.git" ]; then
     git clone --depth=1 --branch "${CLANG_BRANCH}" "${CLANG_URL}" "${CLANG_ROOT}"
 fi
 
+# The piano tree exposes KernelSU through the drivers/kernelsu symlink.
+# Point it at MizuSU's kernel driver instead of its KernelSU-Next default.
+rm -f "${KERNEL_DIR}/drivers/kernelsu"
+ln -s ../mizusu/kernel "${KERNEL_DIR}/drivers/kernelsu"
+[ "$(readlink "${KERNEL_DIR}/drivers/kernelsu")" = "../mizusu/kernel" ]
+
 # The tree already contains NTSync, including ntsync.ko in piano's stock
-# vendor_dlkm module list. A config fragment is enough here; applying the
-# generic NTSync patch would try to add the same driver a second time.
-cat "${GITHUB_WORKSPACE}/config/piano-extra.config" \
-    >> "${KERNEL_DIR}/arch/arm64/configs/piano_ksu.config"
+# vendor_dlkm module list. Replace the root fragment with MizuSU and the
+# Droidspaces requirements.
+cp "${GITHUB_WORKSPACE}/config/piano-mizu.config" \
+    "${KERNEL_DIR}/arch/arm64/configs/piano_ksu.config"
 
 ln -sfn "$(command -v pahole)" \
     "${ROM_DIR}/prebuilts/kernel-build-tools/linux-x86/bin/pahole"
@@ -64,7 +74,7 @@ openssl req -new -x509 -key "${KEY_DIR}/private.pem" \
 cat "${KEY_DIR}/private.pem" "${KEY_DIR}/certificate.pem" > "${MODULE_SIG_KEY}"
 
 export DTC_REPO="${DTC_URL}"
-export ROOT_DIR KERNEL_DIR LLVM_DIR ROM_DIR OUT_DIR PREBUILT_KERNEL_DIR
+export ROOT_DIR KERNEL_DIR MIZU_DIR LLVM_DIR ROM_DIR OUT_DIR PREBUILT_KERNEL_DIR
 export MODULE_SIG_KEY
 export KSU=1
 export COMMIT=0
@@ -74,7 +84,7 @@ export COMMIT=0
 echo "== Verifying required kernel configuration =="
 required_config=(
     "CONFIG_KSU=y"
-    "CONFIG_KSU_SUSFS=y"
+    "CONFIG_KSU_MANUAL_SU=y"
     "CONFIG_NTSYNC=m"
     "CONFIG_SYSVIPC=y"
     "CONFIG_POSIX_MQUEUE=y"
@@ -97,6 +107,7 @@ done
 test -s "${PREBUILT_KERNEL_DIR}/Image"
 test -s "${PREBUILT_KERNEL_DIR}/dtbo.img"
 test -s "${PREBUILT_KERNEL_DIR}/modules/vendor_boot/dlkm.cpio"
+strings "${PREBUILT_KERNEL_DIR}/Image" | grep -Fqx 'com.zayu.mizu'
 lz4 -dc "${PREBUILT_KERNEL_DIR}/modules/vendor_boot/dlkm.cpio" \
     | cpio -it --quiet 2>/dev/null \
     | grep -qx 'lib/modules/ntsync.ko'
@@ -112,7 +123,9 @@ kernel_source=${KERNEL_URL}
 kernel_branch=${KERNEL_BRANCH}
 kernel_commit=${KERNEL_HEAD}
 kernel_release=${KERNEL_RELEASE}
-variant=KernelSU-Next+SUSFS
+variant=MizuSU
+mizusu_tag=${MIZU_TAG}
+mizusu_commit=$(git -C "${MIZU_DIR}" rev-parse HEAD)
 ntsync=in-tree
 droidspaces=7.1-compatible config
 clang=$(git -C "${CLANG_ROOT}" rev-parse HEAD)
