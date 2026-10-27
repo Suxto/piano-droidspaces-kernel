@@ -97,7 +97,9 @@ done
 test -s "${PREBUILT_KERNEL_DIR}/Image"
 test -s "${PREBUILT_KERNEL_DIR}/dtbo.img"
 test -s "${PREBUILT_KERNEL_DIR}/modules/vendor_boot/dlkm.cpio"
-test -s "${PREBUILT_KERNEL_DIR}/modules/vendor_dlkm/ntsync.ko"
+lz4 -dc "${PREBUILT_KERNEL_DIR}/modules/vendor_boot/dlkm.cpio" \
+    | cpio -it --quiet 2>/dev/null \
+    | grep -qx 'lib/modules/ntsync.ko'
 
 KERNEL_HEAD="$(git -C "${KERNEL_DIR}" rev-parse HEAD)"
 KERNEL_SHORT="$(git -C "${KERNEL_DIR}" rev-parse --short=12 HEAD)"
