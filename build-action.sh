@@ -52,8 +52,8 @@ fi
 # The piano tree exposes KernelSU through the drivers/kernelsu symlink.
 # Point it at MizuSU's kernel driver instead of its KernelSU-Next default.
 rm -f "${KERNEL_DIR}/drivers/kernelsu"
-ln -s ../mizusu/kernel "${KERNEL_DIR}/drivers/kernelsu"
-[ "$(readlink "${KERNEL_DIR}/drivers/kernelsu")" = "../mizusu/kernel" ]
+ln -s ../../mizusu/kernel "${KERNEL_DIR}/drivers/kernelsu"
+[ "$(readlink "${KERNEL_DIR}/drivers/kernelsu")" = "../../mizusu/kernel" ]
 
 # The tree already contains NTSync, including ntsync.ko in piano's stock
 # vendor_dlkm module list. Replace the root fragment with MizuSU and the
