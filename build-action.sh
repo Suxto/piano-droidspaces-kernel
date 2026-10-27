@@ -5,7 +5,7 @@ KERNEL_URL="${KERNEL_URL:-https://github.com/xiaomi-pad-8-pro-development/androi
 KERNEL_BRANCH="${KERNEL_BRANCH:-seventeen}"
 KERNEL_COMMIT="${KERNEL_COMMIT:-}"
 MIZU_URL="${MIZU_URL:-https://github.com/helloxujia/mizusu.git}"
-MIZU_TAG="${MIZU_TAG:-v4.1.3}"
+MIZU_REF="${MIZU_REF:-main}"
 CLANG_URL="${CLANG_URL:-https://github.com/ag-sdc-ci/prebuilts_host_clang-r510928.git}"
 CLANG_BRANCH="${CLANG_BRANCH:-universal}"
 DTC_URL="${DTC_URL:-https://github.com/CodeLinaro-mirror/la_kernel_platform_external_dtc.git}"
@@ -42,7 +42,7 @@ if [ -n "${KERNEL_COMMIT}" ]; then
 fi
 
 if [ ! -d "${MIZU_DIR}/.git" ]; then
-    git clone --depth=1 --branch "${MIZU_TAG}" "${MIZU_URL}" "${MIZU_DIR}"
+    git clone --depth=1 --branch "${MIZU_REF}" "${MIZU_URL}" "${MIZU_DIR}"
 fi
 
 if [ ! -d "${CLANG_ROOT}/.git" ]; then
@@ -124,7 +124,7 @@ kernel_branch=${KERNEL_BRANCH}
 kernel_commit=${KERNEL_HEAD}
 kernel_release=${KERNEL_RELEASE}
 variant=MizuSU
-mizusu_tag=${MIZU_TAG}
+mizusu_ref=${MIZU_REF}
 mizusu_commit=$(git -C "${MIZU_DIR}" rev-parse HEAD)
 ntsync=in-tree
 droidspaces=7.1-compatible config
