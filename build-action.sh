@@ -66,6 +66,10 @@ ln -sfn "$(command -v pahole)" \
 curl -L --fail --retry 4 \
     "https://raw.githubusercontent.com/LineageOS/android_system_libufdt/lineage-24.0/utils/src/mkdtboimg.py" \
     -o "${ROM_DIR}/system/libufdt/utils/src/mkdtboimg.py"
+curl -L --fail --retry 4 \
+    "https://android.googlesource.com/kernel/prebuilts/build-tools/+/b46264b70e3cdf70d08c9ae2df6ea3002b242ebc/linux-x86/bin/ufdt_apply_overlay?format=TEXT" \
+    | base64 -d > "${ROM_DIR}/prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay"
+chmod +x "${ROM_DIR}/prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay"
 
 openssl genrsa -out "${KEY_DIR}/private.pem" 4096
 openssl req -new -x509 -key "${KEY_DIR}/private.pem" \
