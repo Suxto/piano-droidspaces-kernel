@@ -38,10 +38,8 @@ jobs:
         run: |
           sudo -E apt-get update
           sudo -E apt-get install -y --no-install-recommends \
-            bc bison build-essential ccache cpio curl device-tree-compiler \
-            dwarves flex gcc-aarch64-linux-gnu git kmod libelf-dev \
-            libncurses-dev libssl-dev lz4 openssl python3 python3-pip \
-            rsync unzip xz-utils zstd
+            bc bison build-essential cpio curl dwarves flex git kmod \
+            libelf-dev libssl-dev lz4 openssl python3 rsync xz-utils zstd
 
       - name: Build piano kernel suite
         env:
