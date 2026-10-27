@@ -2,7 +2,7 @@
 
 GitHub Actions builder for the HyperOS OS4.0.5.0 kernel on Xiaomi Pad 8 Pro.
 It compiles the `seventeen` ALXP kernel with the MizuSU kernel driver
-(`helloxujia/mizusu`, tag `v4.1.3`), and enables the namespace, SysV IPC,
+(`helloxujia/mizusu`, `main`), and enables the namespace, SysV IPC,
 devtmpfs, cgroup, and networking options needed by Droidspaces 7.1. NTSync
 is already present in this source tree and remains available as `ntsync.ko`.
 
