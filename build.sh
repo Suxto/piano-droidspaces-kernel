@@ -87,6 +87,9 @@ VB_RECOVERY_LIST="${PREFLIGHT_DIR}/vendor_boot.modules.load.recovery"
 VDLKM_LIST="${PREFLIGHT_DIR}/vendor_dlkm.modules.load"
 SDLKM_LIST="${PREFLIGHT_DIR}/system_dlkm.modules.load"
 
+# lz4asm depends on CFI_CLANG, which the production fragment disables.
+sed -i '/^lz4asm\.ko$/d' "${VB_LIST}" "${VB_RECOVERY_LIST}"
+
 # Devicetrees, as listed for piano in platform_map.bzl.
 DTB_DIR="${OUT_DIR}/arch/arm64/boot/dts/vendor/qcom"
 TECHPACK_DTB_DIR="${OUT_DIR}/arch/arm64/boot/dts/techpack"
