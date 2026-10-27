@@ -10,7 +10,8 @@ DTC_URL="${DTC_URL:-https://github.com/CodeLinaro-mirror/la_kernel_platform_exte
 
 ROOT_DIR="${ROOT_DIR:-${PWD}/.build}"
 KERNEL_DIR="${KERNEL_DIR:-${ROOT_DIR}/android_kernel_xiaomi_piano}"
-LLVM_DIR="${LLVM_DIR:-${ROOT_DIR}/clang-r510928}"
+CLANG_ROOT="${CLANG_ROOT:-${ROOT_DIR}/clang-r510928}"
+LLVM_DIR="${LLVM_DIR:-${CLANG_ROOT}/bin}"
 ROM_DIR="${ROM_DIR:-${ROOT_DIR}/rom}"
 OUT_DIR="${OUT_DIR:-${ROOT_DIR}/out}"
 PREBUILT_KERNEL_DIR="${PREBUILT_KERNEL_DIR:-${ROOT_DIR}/piano-kernel}"
@@ -40,8 +41,8 @@ if [ -n "${KERNEL_COMMIT}" ]; then
     git -C "${KERNEL_DIR}" submodule update --init --recursive --depth 1
 fi
 
-if [ ! -d "${LLVM_DIR}/.git" ]; then
-    git clone --depth=1 --branch "${CLANG_BRANCH}" "${CLANG_URL}" "${LLVM_DIR}"
+if [ ! -d "${CLANG_ROOT}/.git" ]; then
+    git clone --depth=1 --branch "${CLANG_BRANCH}" "${CLANG_URL}" "${CLANG_ROOT}"
 fi
 
 # The tree already contains NTSync, including ntsync.ko in piano's stock
@@ -112,7 +113,7 @@ kernel_release=${KERNEL_RELEASE}
 variant=KernelSU-Next+SUSFS
 ntsync=in-tree
 droidspaces=7.1-compatible config
-clang=$(git -C "${LLVM_DIR}" rev-parse HEAD)
+clang=$(git -C "${CLANG_ROOT}" rev-parse HEAD)
 build_host=$(uname -a)
 build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
