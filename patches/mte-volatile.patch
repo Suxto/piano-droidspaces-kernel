@@ -1,0 +1,26 @@
+From: upstream commit 0a761271d9fc5746b4ad1504e57dbe086dfff52c
+Subject: arm64: mte: keep tag instructions behind their checks
+
+Retain the seventeen branch's SLUB-without-LTO workaround as well. Oryon
+has no MTE; these instructions must not be hoisted above feature checks.
+
+--- a/arch/arm64/include/asm/mte-kasan.h
++++ b/arch/arm64/include/asm/mte-kasan.h
+@@ -98,7 +98,7 @@
+ /* Get allocation tag for the address. */
+ static inline u8 mte_get_mem_tag(void *addr)
+ {
+-	asm(__MTE_PREAMBLE "ldg %0, [%0]"
++	asm volatile(__MTE_PREAMBLE "ldg %0, [%0]"
+ 		: "+r" (addr));
+ 
+ 	return mte_get_ptr_tag(addr);
+@@ -109,7 +109,7 @@
+ {
+ 	void *addr;
+ 
+-	asm(__MTE_PREAMBLE "irg %0, %0"
++	asm volatile(__MTE_PREAMBLE "irg %0, %0"
+ 		: "=r" (addr));
+ 
+ 	return mte_get_ptr_tag(addr);

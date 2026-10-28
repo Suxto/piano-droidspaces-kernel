@@ -87,8 +87,7 @@ VB_RECOVERY_LIST="${PREFLIGHT_DIR}/vendor_boot.modules.load.recovery"
 VDLKM_LIST="${PREFLIGHT_DIR}/vendor_dlkm.modules.load"
 SDLKM_LIST="${PREFLIGHT_DIR}/system_dlkm.modules.load"
 
-# lz4asm depends on CFI_CLANG, which the production fragment disables.
-sed -i '/^lz4asm\.ko$/d' "${VB_LIST}" "${VB_RECOVERY_LIST}"
+# Keep the source's ordered module lists, including lz4asm when CFI is enabled.
 
 # Devicetrees, as listed for piano in platform_map.bzl.
 DTB_DIR="${OUT_DIR}/arch/arm64/boot/dts/vendor/qcom"
@@ -228,8 +227,8 @@ stage_modules() {
 # vendor_boot carries the recovery modules as well, since piano boots
 # recovery with the vendor_boot ramdisk
 stage_modules vendor_boot $(module_closure "${VB_LIST}" "${VB_RECOVERY_LIST}")
-stage_modules vendor_dlkm $(cat "${VDLKM_LIST}")
-stage_modules system_dlkm $(cat "${SDLKM_LIST}")
+stage_modules vendor_dlkm $(module_closure "${VDLKM_LIST}")
+stage_modules system_dlkm $(module_closure "${SDLKM_LIST}")
 
 #####
 #####
@@ -386,7 +385,7 @@ safe_copy "${OUT_DIR}/dlkm.cpio" "${PREBUILT_KERNEL_DIR}/modules/vendor_boot/"
 for part in vendor_dlkm system_dlkm; do
     echo "   [sync] ${part} modules"
     cp "${DLKM_STAGING}/${part}/lib/modules/${KERNEL_VER}"/*.ko \
-        "${DLKM_STAGING}/${part}/lib/modules/${KERNEL_VER}/modules.load" \
+        "${DLKM_STAGING}/${part}/lib/modules/${KERNEL_VER}"/modules.* \
         "${PREBUILT_KERNEL_DIR}/modules/${part}/"
 done
 cp "${BLOCKLIST}" "${PREBUILT_KERNEL_DIR}/modules/vendor_dlkm/modules.blocklist"

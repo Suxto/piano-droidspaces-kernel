@@ -3,9 +3,10 @@ set -euo pipefail
 
 KERNEL_URL="${KERNEL_URL:-https://github.com/xiaomi-pad-8-pro-development/android_kernel_xiaomi_piano.git}"
 KERNEL_BRANCH="${KERNEL_BRANCH:-seventeen}"
-KERNEL_COMMIT="${KERNEL_COMMIT:-}"
+KERNEL_COMMIT="${KERNEL_COMMIT:-872ff31e1eaedc655c0cd663193cf5960c401244}"
 MIZU_URL="${MIZU_URL:-https://github.com/helloxujia/mizusu.git}"
 MIZU_REF="${MIZU_REF:-main}"
+MIZU_COMMIT="${MIZU_COMMIT:-3aca31e2602f5c741a6649b016d5d0482ef44c78}"
 CLANG_URL="${CLANG_URL:-https://github.com/ag-sdc-ci/prebuilts_host_clang-r510928.git}"
 CLANG_BRANCH="${CLANG_BRANCH:-universal}"
 DTC_URL="${DTC_URL:-https://github.com/CodeLinaro-mirror/la_kernel_platform_external_dtc.git}"
@@ -30,6 +31,20 @@ nproc
 free -h
 df -h
 
+python3 -m unittest discover -s "${GITHUB_WORKSPACE}/tests" -v
+# Resource preparation belongs to this Actions-specific entrypoint. Do not
+# alter a developer machine's swap when build.sh is invoked locally.
+if [ "${GITHUB_ACTIONS:-}" = true ]; then
+    if [ "$(df --output=avail / | tail -1)" -lt 33554432 ]; then
+        echo "[error] insufficient disk space for Full LTO swap reserve" >&2
+        exit 1
+    fi
+    sudo fallocate -l 24G /swapfile-piano
+    sudo chmod 600 /swapfile-piano
+    sudo mkswap /swapfile-piano
+    sudo swapon /swapfile-piano
+fi
+
 if [ ! -d "${KERNEL_DIR}/.git" ]; then
     git clone --depth=1 --branch "${KERNEL_BRANCH}" \
         --no-recurse-submodules \
@@ -44,6 +59,11 @@ fi
 if [ ! -d "${MIZU_DIR}/.git" ]; then
     git clone --depth=1 --branch "${MIZU_REF}" "${MIZU_URL}" "${MIZU_DIR}"
 fi
+git -C "${MIZU_DIR}" fetch --depth=1 origin "${MIZU_COMMIT}"
+git -C "${MIZU_DIR}" checkout --detach FETCH_HEAD
+
+git -C "${KERNEL_DIR}" apply --check "${GITHUB_WORKSPACE}/patches/mte-volatile.patch"
+git -C "${KERNEL_DIR}" apply "${GITHUB_WORKSPACE}/patches/mte-volatile.patch"
 
 if [ ! -d "${CLANG_ROOT}/.git" ]; then
     git clone --depth=1 --branch "${CLANG_BRANCH}" "${CLANG_URL}" "${CLANG_ROOT}"
@@ -89,6 +109,10 @@ echo "== Verifying required kernel configuration =="
 required_config=(
     "CONFIG_KSU=y"
     "CONFIG_KSU_MANUAL_SU=y"
+    "CONFIG_LTO_CLANG_FULL=y"
+    "CONFIG_CFI_CLANG=y"
+    "CONFIG_KASAN_HW_TAGS=y"
+    "CONFIG_DEBUG_INFO_BTF=y"
     "CONFIG_NTSYNC=m"
     "CONFIG_SYSVIPC=y"
     "CONFIG_POSIX_MQUEUE=y"
@@ -127,11 +151,13 @@ kernel_source=${KERNEL_URL}
 kernel_branch=${KERNEL_BRANCH}
 kernel_commit=${KERNEL_HEAD}
 kernel_release=${KERNEL_RELEASE}
-variant=MizuSU
+variant=MizuSU-candidate-v2
+source_patch=mte-volatile-0a761271d9fc
+boot_validation=not-tested
 mizusu_ref=${MIZU_REF}
 mizusu_commit=$(git -C "${MIZU_DIR}" rev-parse HEAD)
 ntsync=in-tree
-droidspaces=7.1-compatible config
+droidspaces=7.1-required-config-enabled-not-runtime-tested
 clang=$(git -C "${CLANG_ROOT}" rev-parse HEAD)
 build_host=$(uname -a)
 build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -139,6 +165,7 @@ EOF
 
 cp "${OUT_DIR}/.config" "${ROOT_DIR}/piano-kernel.config"
 cp "${OUT_DIR}/System.map" "${ROOT_DIR}/piano-System.map"
+cp "${KEY_DIR}/certificate.pem" "${PREBUILT_KERNEL_DIR}/module-signing-certificate.pem"
 
 tar --owner=0 --group=0 -C "${PREBUILT_KERNEL_DIR}" \
     -czf "${ROOT_DIR}/${ARTIFACT_NAME}.tar.gz" .
