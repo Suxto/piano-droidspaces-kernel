@@ -1,0 +1,81 @@
+name: GCROss GKI KernelSU
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+          df -h /
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y git curl make gcc g++ build-essential libssl-dev bison flex libelf-dev dwarves ccache python3 clang lld bc rsync cpio perl patch zip gawk zstd
+      - name: Fetch pinned upstream scripts
+        run: |
+          git clone https://github.com/404-GCross/Droidspaces_GKI_Buildin_Local.git upstream
+          git -C upstream checkout 65f28534fe2c672ad41d1a7261f84d9c560be1df
+          curl -fLSs https://raw.githubusercontent.com/404-GCross/GKI-Kernel-Source_Fetch/718adc22f42cc1f8f3d0b4398f639174fa217029/fetch_kernel_source_no-extract.sh -o fetch.sh
+          bash -n fetch.sh upstream/build_kernel.sh
+      - name: Download and verify Android 15 6.6.118 sources
+        env:
+          SCRIPT_LANG: en
+          EXTRACT: 'yes'
+          KEEP_TARBALL: 'no'
+          FLAT_OUTPUT: 'yes'
+          OUTPUT_DIR: /home/runner/kernel-source
+        run: |
+          set -o pipefail
+          printf '4\n13\n1\nn\ny\n' | bash fetch.sh 2>&1 | tee fetch.log
+          test -f /home/runner/kernel-source/common/Makefile
+      - name: Build upstream with official KernelSU and Droidspaces
+        run: |
+          cat > upstream/.build_config <<'CONFIG'
+          APP_LANG="en"
+          ANDROID_VERSION="android15"
+          KERNEL_VERSION="6.6"
+          SUB_LEVEL="118"
+          OS_PATCH_LEVEL="2026-01"
+          REVISION=""
+          KSU_VARIANT="Official"
+          KSU_BRANCH="Stable"
+          CUSTOM_VERSION=""
+          BUILD_TIME=""
+          USE_ZRAM="false"
+          USE_KPM="disabled"
+          USE_REKERNEL="false"
+          CVE_2026_43499_PATCH="true"
+          DROIDSPACES="678"
+          KERNEL_SOURCE="/home/runner/kernel-source"
+          KERNEL_SOURCE_TARBALL=""
+          OUTPUT_DIR="/home/runner/gki-output"
+          PACKAGE_BOOT="true"
+          CONFIG
+          set -o pipefail
+          printf 'y\n' | bash upstream/build_kernel.sh --quick 2>&1 | tee build.log
+          test -s /home/runner/gki-output/Image
+          find /home/runner/gki-output -maxdepth 1 -name '*.zip' | grep .
+          sha256sum /home/runner/gki-output/Image /home/runner/gki-output/*.zip > /home/runner/gki-output/SHA256SUMS
+      - name: Upload kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: android15-6.6.118-Official-KernelSU-Droidspaces
+          path: |
+            /home/runner/gki-output/Image
+            /home/runner/gki-output/*.zip
+            /home/runner/gki-output/SHA256SUMS
+          if-no-files-found: error
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcross-build-logs
+          path: |
+            fetch.log
+            build.log
+            upstream/.build_config
