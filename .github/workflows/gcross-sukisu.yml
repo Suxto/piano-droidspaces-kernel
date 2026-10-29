@@ -8,6 +8,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     steps:
+      - name: Checkout build hooks
+        uses: actions/checkout@v4
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
@@ -16,11 +18,17 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y git curl make gcc g++ build-essential libssl-dev bison flex libelf-dev dwarves ccache python3 clang lld bc rsync cpio perl patch zip gawk zstd
+      - name: Check camera build integration
+        run: |
+          bash -n ci/sukisu_features.sh
+          python3 -m unittest discover -s tests -p 'test_v4l2loopback.py' -v
       - name: Fetch pinned upstream scripts
         run: |
           git clone https://github.com/404-GCross/Droidspaces_GKI_Buildin_Local.git upstream
           git -C upstream checkout 65f28534fe2c672ad41d1a7261f84d9c560be1df
           curl -fLSs https://raw.githubusercontent.com/404-GCross/GKI-Kernel-Source_Fetch/718adc22f42cc1f8f3d0b4398f639174fa217029/fetch_kernel_source_no-extract.sh -o fetch.sh
+          git clone --filter=blob:none --no-checkout https://github.com/v4l2loopback/v4l2loopback.git v4l2loopback-source
+          git -C v4l2loopback-source checkout 0f9ee86760b7f2bea174b7e3e7a1d38845da0ab4
           bash -n fetch.sh upstream/build_kernel.sh
       - name: Download and verify Android 15 6.6.118 sources
         env:
@@ -41,9 +49,9 @@ jobs:
           key: gki-bazel-v1-${{ runner.os }}-android15-6.6.118-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             gki-bazel-v1-${{ runner.os }}-android15-6.6.118-
-      - name: Build upstream with official KernelSU and Droidspaces
+      - name: Build SukiSU Droidspaces and builtin V4L2 loopback
         run: |
-          echo 'CmFwcGx5X2tlcm5lbHN1KCkgewogICAgbG9jYWwgcm9vdD0iJDEiCiAgICBjZCAiJHJvb3QiCiAgICBjdXJsIC1mTFNzIGh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9TdWtpU1UtVWx0cmEvU3VraVNVLVVsdHJhL2I1OTE3MDcyNGNkYzA1YmY1ZGVlOGQ4YThiMTgyYzVmMWRkZDYwZTMva2VybmVsL3NldHVwLnNoIC1vIC90bXAvc3VraXN1LXNldHVwLnNoCiAgICBiYXNoIC90bXAvc3VraXN1LXNldHVwLnNoIGI1OTE3MDcyNGNkYzA1YmY1ZGVlOGQ4YThiMTgyYzVmMWRkZDYwZTMKICAgIHB5dGhvbjMgLSA8PCdQWScKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCnAgPSBQYXRoKCdLZXJuZWxTVS9rZXJuZWwvcG9saWN5L2FsbG93bGlzdC5jJykKcyA9IHAucmVhZF90ZXh0KCkKb2xkID0gJyAgICAgICAgLyogZmFsbCB0aHJvdWdoICovXG4gICAgY2FzZSAzOicKYXNzZXJ0IHMuY291bnQob2xkKSA9PSAxLCAnVW5leHBlY3RlZCBtaWdyYXRpb24gc3dpdGNoIGNvbnRleHQnCnAud3JpdGVfdGV4dChzLnJlcGxhY2Uob2xkLCAnICAgICAgICBmYWxsdGhyb3VnaDtcbiAgICBjYXNlIDM6JykpClBZCiAgICBnaXQgY2xvbmUgaHR0cHM6Ly9naXRodWIuY29tL1NoaXJrTmVrby9zdXNmczRrc3UuZ2l0IC9ob21lL3J1bm5lci9zdXNmczRrc3UKICAgIGdpdCAtQyAvaG9tZS9ydW5uZXIvc3VzZnM0a3N1IGNoZWNrb3V0IDA2MDZlMTlhZmFlOTNmZmM4OGU1Mzg4M2RiZjNjZmNlZDYyYTdiNTkKICAgIGN1cmwgLWZMU3MgaHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL3p6aDIwMTg4L0dLSV9LZXJuZWxTVV9TVVNGUy9lZDljYTQyNzA5ZGZiMjNlYWU2MDM0ZDY3NDgyZDFjMzU2MzFiODVlL3NjcmlwdHMvc3VzZnNfZml4ZXMvYXBwbHkuc2ggLW8gL3RtcC9hcHBseS1zdXNmcy5zaAogICAgZXhwb3J0IEFORFJPSURfVkVSU0lPTj1hbmRyb2lkMTUgS0VSTkVMX1ZFUlNJT049Ni42IEtTVV9WQVJJQU5UPVN1a2lTVSBPU19QQVRDSF9MRVZFTD0yMDI2LTAxIFNVQl9MRVZFTD0xMTgKICAgIGV4cG9ydCBLRVJORUxfUk9PVD0iJHJvb3QiIFNVU0ZTNEtTVT0vaG9tZS9ydW5uZXIvc3VzZnM0a3N1IEtFUk5FTF9QQVRDSEVTPS9ob21lL3J1bm5lci91bnVzZWQgTEVHQUNZX1NVS0lTVV9DT05GSUc9IiIKICAgIGJhc2ggL3RtcC9hcHBseS1zdXNmcy5zaAogICAgY2QgIiRyb290IgogICAgaWYgZmluZCBjb21tb24gLW5hbWUgJyoucmVqJyAtcHJpbnQgLXF1aXQgfCBncmVwIC1xIC47IHRoZW4KICAgICAgICBlY2hvICdVbnJlc29sdmVkIHBhdGNoIHJlamVjdHMnOyByZXR1cm4gMQogICAgZmkKICAgIGNhdCA+PiBjb21tb24vYXJjaC9hcm02NC9jb25maWdzL2draV9kZWZjb25maWcgPDwnQ09ORklHJwpDT05GSUdfS1BNPXkKQ09ORklHX0tTVV9TVVNGUz15CkNPTkZJR19LU1VfU1VTRlNfU1VTX1BBVEg9eQpDT05GSUdfS1NVX1NVU0ZTX1NVU19NT1VOVD15CkNPTkZJR19LU1VfU1VTRlNfU1VTX0tTVEFUPXkKQ09ORklHX0tTVV9TVVNGU19TUE9PRl9VTkFNRT15CkNPTkZJR19LU1VfU1VTRlNfRU5BQkxFX0xPRz15CkNPTkZJR19LU1VfU1VTRlNfSElERV9LU1VfU1VTRlNfU1lNQk9MUz15CkNPTkZJR19LU1VfU1VTRlNfU1BPT0ZfQ01ETElORV9PUl9CT09UQ09ORklHPXkKQ09ORklHX0tTVV9TVVNGU19PUEVOX1JFRElSRUNUPXkKQ09ORklHX0tTVV9TVVNGU19TVVNfTUFQPXkKQ09ORklHCiAgICBnaXQgLUMgS2VybmVsU1UgcmV2LXBhcnNlIEhFQUQgPiAvaG9tZS9ydW5uZXIvZ2tpLXNvdXJjZS1tYW5pZmVzdC50eHQKICAgIGdpdCAtQyAvaG9tZS9ydW5uZXIvc3VzZnM0a3N1IHJldi1wYXJzZSBIRUFEID4+IC9ob21lL3J1bm5lci9na2ktc291cmNlLW1hbmlmZXN0LnR4dAp9Cg==' | base64 -d >> upstream/scripts/lib/features.sh
+          cat ci/sukisu_features.sh >> upstream/scripts/lib/features.sh
           bash -n upstream/scripts/lib/features.sh
           cat > upstream/.build_config <<'CONFIG'
           APP_LANG="en"
@@ -72,16 +80,17 @@ jobs:
           find /home/runner/gki-output -maxdepth 1 -name '*.zip' | grep .
           actual_config=$(find /home/runner/kernel-source -path '*/include/config/auto.conf' -type f -print -quit)
           test -n "$actual_config"
-          for option in CONFIG_KSU CONFIG_KPM CONFIG_KSU_SUSFS CONFIG_NTSYNC; do
+          for option in CONFIG_KSU CONFIG_KPM CONFIG_KSU_SUSFS CONFIG_NTSYNC CONFIG_VIDEO_DEV CONFIG_VIDEO_V4L2LOOPBACK; do
             grep -qx "${option}=y" "$actual_config"
           done
           cp "$actual_config" /home/runner/gki-output/verified.config
           cp /home/runner/gki-source-manifest.txt /home/runner/gki-output/source-manifest.txt
+          grep -qx 'v4l2loopback_initial_devices=0' /home/runner/gki-output/source-manifest.txt
           sha256sum /home/runner/gki-output/Image /home/runner/gki-output/*.zip > /home/runner/gki-output/SHA256SUMS
-      - name: Upload kernel
+      - name: Upload kernel candidate
         uses: actions/upload-artifact@v4
         with:
-          name: android15-6.6.118-SukiSU-KPM-SUSFS-Droidspaces
+          name: android15-6.6.118-SukiSU-KPM-SUSFS-Droidspaces-V4L2Loopback-candidate
           path: |
             /home/runner/gki-output/Image
             /home/runner/gki-output/*.zip
